@@ -28,7 +28,22 @@ env:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    outputs:
+      deploy_ready: ${{ steps.cfg.outputs.ready }}
     steps:
+      - name: ¿Hay secrets de Vercel?
+        id: cfg
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+          O: ${{ secrets.VERCEL_ORG_ID }}
+          P: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$T" ] && [ -n "$O" ] && [ -n "$P" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Despliegue omitido: faltan los secrets VERCEL_TOKEN, VERCEL_ORG_ID y/o VERCEL_PROJECT_ID (ver README)."
+          fi
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
@@ -42,7 +57,7 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     # Los PR desde forks no tienen acceso a los secrets.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: needs.ci.outputs.deploy_ready == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
     steps:
       - uses: actions/checkout@v5
