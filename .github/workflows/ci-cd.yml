@@ -1,0 +1,68 @@
+# CI/CD provisional del frontend -> Vercel.
+#   - PR a main:   lint + build y despliegue de PREVIEW (URL comentada en el job).
+#   - push a main: lint + build y despliegue a PRODUCCION.
+#
+# Secrets requeridos (Settings > Secrets and variables > Actions):
+#   VERCEL_TOKEN       token personal (vercel.com/account/tokens)
+#   VERCEL_ORG_ID      "orgId"     de .vercel/project.json (tras `npx vercel link`)
+#   VERCEL_PROJECT_ID  "projectId" de .vercel/project.json
+# La URL del backend (VITE_API_URL) se configura como variable de entorno del
+# proyecto en Vercel (Production y Preview); `vercel pull` la trae al build.
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    # Los PR desde forks no tienen acceso a los secrets.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --global vercel@latest
+
+      - name: Deploy (producción)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "### Producción: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy (preview)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"

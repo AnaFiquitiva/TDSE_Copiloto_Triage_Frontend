@@ -11,8 +11,13 @@ import type {
   DecisionResponse,
 } from './types'
 
+// URL base de la API (repositorio backend, desplegado en Azure). Se fija en
+// tiempo de build con VITE_API_URL (p. ej. en Vercel). Vacía = rutas relativas,
+// que en desarrollo resuelve el proxy de Vite (vite.config.ts).
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(path, {
+  const resp = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
