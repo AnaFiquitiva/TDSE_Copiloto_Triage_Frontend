@@ -1,36 +1,60 @@
 import clsx from 'clsx'
 
-const LEVEL_STYLES: Record<number, { label: string; classes: string }> = {
-  1: { label: 'I · Resucitación', classes: 'bg-red-500/15 text-red-300 ring-red-500/40' },
-  2: { label: 'II · Emergencia', classes: 'bg-orange-500/15 text-orange-300 ring-orange-500/40' },
-  3: { label: 'III · Urgencia', classes: 'bg-amber-400/15 text-amber-300 ring-amber-400/40' },
-  4: { label: 'IV · Urgencia menor', classes: 'bg-sky-500/15 text-sky-300 ring-sky-500/40' },
-  5: { label: 'V · No urgencia', classes: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/40' },
+export const LEVELS: Record<number, { roman: string; name: string }> = {
+  1: { roman: 'I', name: 'Resucitación' },
+  2: { roman: 'II', name: 'Emergencia' },
+  3: { roman: 'III', name: 'Urgencia' },
+  4: { roman: 'IV', name: 'Urgencia menor' },
+  5: { roman: 'V', name: 'No urgencia' },
+}
+
+/** Color del nivel como variable CSS (cambia con el tema claro/oscuro). Sirve
+ * tanto en `style` como en atributos SVG de Recharts (fill/stroke). */
+export function levelColor(level: number | null): string {
+  return level && LEVELS[level] ? `var(--lvl-${level})` : 'var(--lvl-null)'
+}
+
+export function levelLabel(level: number | null, short = false): string {
+  if (!level || !LEVELS[level]) return 'Sin nivel'
+  return short ? `Nivel ${LEVELS[level].roman}` : `${LEVELS[level].roman} · ${LEVELS[level].name}`
 }
 
 export function LevelBadge({ level, compact = false }: { level: number | null; compact?: boolean }) {
-  if (level === null) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-700/50 px-3 py-1 text-xs font-semibold text-slate-300 ring-1 ring-inset ring-slate-600">
-        Sin nivel
-      </span>
-    )
-  }
-  const style = LEVEL_STYLES[level]
+  const color = levelColor(level)
   return (
     <span
-      className={clsx(
-        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset',
-        style.classes,
-      )}
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset"
+      style={{
+        color,
+        backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+        ['--tw-ring-color' as string]: `color-mix(in srgb, ${color} 40%, transparent)`,
+      }}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {compact ? `Nivel ${level}` : style.label}
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+      {level === null ? 'Sin nivel' : levelLabel(level, compact)}
     </span>
   )
 }
 
-export function levelColor(level: number | null): string {
-  if (level === null) return '#64748b'
-  return { 1: '#f87171', 2: '#fb923c', 3: '#fbbf24', 4: '#38bdf8', 5: '#34d399' }[level] ?? '#64748b'
+/** Anillo grande con el numeral romano y brillo pulsante (resultado principal). */
+export function LevelRing({ level, size = 'lg' }: { level: number | null; size?: 'md' | 'lg' }) {
+  const color = levelColor(level)
+  return (
+    <div
+      className={clsx(
+        'relative flex shrink-0 items-center justify-center rounded-full border-4 bg-bg',
+        size === 'lg' ? 'h-28 w-28 sm:h-32 sm:w-32' : 'h-20 w-20',
+      )}
+      style={{ borderColor: color, ['--ring-color' as string]: color, animation: 'pop .5s cubic-bezier(.34,1.56,.64,1) both, glow 3s ease-in-out .5s infinite' }}
+      role="img"
+      aria-label={levelLabel(level)}
+    >
+      <span
+        className={clsx('font-display font-bold tracking-tighter', size === 'lg' ? 'text-5xl sm:text-6xl' : 'text-3xl')}
+        style={{ color }}
+      >
+        {level && LEVELS[level] ? LEVELS[level].roman : '—'}
+      </span>
+    </div>
+  )
 }
