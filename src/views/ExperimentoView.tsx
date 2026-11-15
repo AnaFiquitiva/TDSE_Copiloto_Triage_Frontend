@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { FlaskConical, RefreshCw } from 'lucide-react'
 
-import { errorMessage, fetchExperimento } from '../api'
+import { fetchExperimento } from '../api'
+import { useAsync } from '../useAsync'
 import type { ExperimentoResponse } from '../types'
 import { Card, ErrorBox, PageBody, PageHero, Skeleton, StatCard } from '../components/Common'
 import { useChartTheme } from '../components/chartTheme'
@@ -25,25 +25,7 @@ const COLUMN_HELP: Record<string, string> = {
 }
 
 export function ExperimentoView() {
-  const [data, setData] = useState<ExperimentoResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  async function load() {
-    setLoading(true)
-    setError(null)
-    try {
-      setData(await fetchExperimento())
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
+  const { data, loading, error, reload: load } = useAsync<ExperimentoResponse>(fetchExperimento, [])
 
   const chart = useChartTheme()
   const evaluated = data ? data.cells.filter((c) => !c.no_evaluada) : []

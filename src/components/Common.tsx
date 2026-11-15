@@ -177,12 +177,12 @@ export function ScoreBar({ value, max = 1, color = 'var(--accent)' }: { value: n
 export function useCountUp(target: number, duration = 900): number {
   const [value, setValue] = useState(0)
   const frame = useRef<number>(0)
+  // Sin animación (movimiento reducido o valor no finito) se devuelve el valor
+  // final directamente, sin pasar por el estado.
+  const [reduce] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const animate = !reduce && Number.isFinite(target)
   useEffect(() => {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduce || !Number.isFinite(target)) {
-      setValue(target)
-      return
-    }
+    if (!animate) return
     const start = performance.now()
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration)
@@ -191,8 +191,8 @@ export function useCountUp(target: number, duration = 900): number {
     }
     frame.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame.current)
-  }, [target, duration])
-  return value
+  }, [target, duration, animate])
+  return animate ? value : target
 }
 
 export function CountUp({ value, format }: { value: number; format: (n: number) => string }) {

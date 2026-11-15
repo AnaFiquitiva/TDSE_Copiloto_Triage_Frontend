@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BookOpen, ListChecks, Search } from 'lucide-react'
 import clsx from 'clsx'
 
-import { errorMessage, fetchCasos, fetchCorpus } from '../api'
-import type { CorpusFormat, CorpusChunk, GoldCase } from '../types'
+import { fetchCasos, fetchCorpus } from '../api'
+import { useAsync } from '../useAsync'
+import type { CorpusFormat, CorpusChunk } from '../types'
 import { Card, ErrorBox, PageBody, PageHero, Skeleton, inputClass } from '../components/Common'
 
 const HERO = 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?q=80&w=1800&auto=format&fit=crop'
@@ -81,16 +82,10 @@ function TabButton({
 }
 
 function CasosExplorer() {
-  const [cases, setCases] = useState<GoldCase[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data, error, reload } = useAsync(fetchCasos, [])
+  const cases = data?.cases ?? null
   const [query, setQuery] = useState('')
   const [levelFilter, setLevelFilter] = useState<number | 'all' | 'ambiguo' | 'abstencion'>('all')
-
-  useEffect(() => {
-    fetchCasos()
-      .then((r) => setCases(r.cases))
-      .catch((e) => setError(errorMessage(e)))
-  }, [])
 
   const filtered = useMemo(() => {
     if (!cases) return []
@@ -105,7 +100,7 @@ function CasosExplorer() {
     })
   }, [cases, query, levelFilter])
 
-  if (error) return <ErrorBox message={error} />
+  if (error) return <ErrorBox message={error} onRetry={reload} />
   if (!cases)
     return (
       <div className="grid gap-2">
@@ -186,16 +181,9 @@ function CasosExplorer() {
 
 function CorpusExplorer() {
   const [format, setFormat] = useState<CorpusFormat>('reformatted')
-  const [chunks, setChunks] = useState<CorpusChunk[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    setChunks(null)
-    setError(null)
-    fetchCorpus(format)
-      .then((r) => setChunks(r.chunks))
-      .catch((e) => setError(errorMessage(e)))
-  }, [format])
+  // Al cambiar de formato se vuelve a pedir; mientras tanto chunks es null.
+  const { data, error, reload } = useAsync(() => fetchCorpus(format), [format])
+  const chunks: CorpusChunk[] | null = data?.chunks ?? null
 
   return (
     <Card>
@@ -215,7 +203,7 @@ function CorpusExplorer() {
         ))}
       </div>
 
-      {error && <ErrorBox message={error} />}
+      {error && <ErrorBox message={error} onRetry={reload} />}
       {!chunks && !error && (
         <div className="grid gap-2">
           {[0, 1, 2].map((i) => (

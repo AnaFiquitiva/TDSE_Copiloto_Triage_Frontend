@@ -1,35 +1,21 @@
-import { useEffect, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Database, ExternalLink } from 'lucide-react'
 
-import { errorMessage, fetchDataset } from '../api'
+import { fetchDataset } from '../api'
+import { useAsync } from '../useAsync'
 import type { DatasetResponse } from '../types'
 import { Card, ErrorBox, PageBody, PageHero, Skeleton, StatCard } from '../components/Common'
 import { useChartTheme } from '../components/chartTheme'
+import { levelColor } from '../components/LevelBadge'
 
 const HERO = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1800&auto=format&fit=crop'
-import { levelColor } from '../components/LevelBadge'
 
 const LEVEL_ORDER = ['I', 'II', 'III', 'IV', 'V']
 const LEVEL_NUM: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5 }
 
 export function DatasetView() {
-  const [data, setData] = useState<DatasetResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
+  const { data, loading, error, reload: load } = useAsync<DatasetResponse>(fetchDataset, [])
   const chart = useChartTheme()
-
-  function load() {
-    setLoading(true)
-    setError(null)
-    fetchDataset()
-      .then(setData)
-      .catch((e) => setError(errorMessage(e)))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(load, [])
 
   const distributionData = LEVEL_ORDER.map((lvl) => ({
     nivel: lvl,
