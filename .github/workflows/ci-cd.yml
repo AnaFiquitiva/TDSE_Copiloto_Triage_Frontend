@@ -1,6 +1,6 @@
 # CI/CD provisional del frontend -> Vercel.
-#   - PR a main:   lint + build y despliegue de PREVIEW (URL comentada en el job).
-#   - push a main: lint + build y despliegue a PRODUCCION.
+#   - PR a main:   lint + pruebas + build y despliegue de PREVIEW.
+#   - push a main: lint + pruebas + build y despliegue a PRODUCCION.
 #
 # Secrets requeridos (Settings > Secrets and variables > Actions):
 #   VERCEL_TOKEN       token personal (vercel.com/account/tokens)
@@ -51,6 +51,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - name: Pruebas de la interfaz (Vitest + Testing Library)
+        run: npm test
       - run: npm run build
 
   deploy:
