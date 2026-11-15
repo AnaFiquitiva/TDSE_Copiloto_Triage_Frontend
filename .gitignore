@@ -28,3 +28,7 @@ dist-ssr
 .env.*
 !.env.example
 .vercel
+
+.superdesign/tmp/
+.superdesign/init/
+.superdesign/resume.json
