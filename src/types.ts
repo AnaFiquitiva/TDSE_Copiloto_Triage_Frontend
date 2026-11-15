@@ -62,7 +62,10 @@ export interface DecisionRequest {
   final_level?: number
   reason?: string
   review_seconds: number
-  user?: string
+  /** Nombre libre de quien revisa (obligatorio en la API). */
+  user: string
+  /** Cargo elegido de la lista fija (Médico/a, Enfermero/a...). */
+  user_role?: string
 }
 
 export interface DecisionResponse {
@@ -71,6 +74,23 @@ export interface DecisionResponse {
   action: DecisionAction
   final_level: number
   suggested_level: number | null
+  user: string | null
+  user_role: string | null
+  timestamp_utc: string | null
+}
+
+export interface DecisionHistoryItem {
+  event_hash: string
+  ref_hash: string
+  case_id: string | null
+  action: DecisionAction
+  suggested_level: number | null
+  final_level: number
+  reason: string | null
+  user: string | null
+  user_role: string | null
+  review_seconds: number
+  timestamp_utc: string | null
 }
 
 // Las métricas pueden venir en null (NaN en Python: p. ej. sin casos I-II).
