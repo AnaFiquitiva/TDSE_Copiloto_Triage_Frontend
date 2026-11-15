@@ -2,10 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, ListChecks, Search } from 'lucide-react'
 import clsx from 'clsx'
 
-import { fetchCasos, fetchCorpus } from '../api'
+import { errorMessage, fetchCasos, fetchCorpus } from '../api'
 import type { CorpusFormat, CorpusChunk, GoldCase } from '../types'
-import { Card, ErrorBox, SectionTitle, Spinner } from '../components/Common'
-import { LevelBadge } from '../components/LevelBadge'
+import { Card, ErrorBox, PageBody, PageHero, Skeleton, inputClass } from '../components/Common'
+
+const HERO = 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?q=80&w=1800&auto=format&fit=crop'
+
+/** Minúsculas y sin tildes: "niño" encuentra "nino" y viceversa. */
+function normalize(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+}
+import { LEVELS, LevelBadge, levelColor } from '../components/LevelBadge'
 
 type SubTab = 'corpus' | 'casos'
 
@@ -23,14 +30,15 @@ export function ExplorarView() {
   const [subTab, setSubTab] = useState<SubTab>('casos')
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <SectionTitle
+    <>
+      <PageHero
         eyebrow="Transparencia del gold standard"
-        title="Explorar corpus y casos de prueba"
-        description="Navega el corpus normativo reformateado (los 31 fragmentos citables) y las 74 viñetas sintéticas del gold standard, con su nivel de referencia y su cita."
+        title="Corpus normativo y casos de prueba"
+        description="Navega el corpus normativo (los 31 fragmentos citables) y las 74 viñetas sintéticas del gold standard, con su nivel de referencia y su cita."
+        image={HERO}
       />
-
-      <div className="mb-6 flex gap-2">
+      <PageBody>
+      <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Contenido">
         <TabButton active={subTab === 'casos'} onClick={() => setSubTab('casos')} icon={ListChecks}>
           Casos de prueba (74)
         </TabButton>
@@ -40,7 +48,8 @@ export function ExplorarView() {
       </div>
 
       {subTab === 'casos' ? <CasosExplorer /> : <CorpusExplorer />}
-    </div>
+      </PageBody>
+    </>
   )
 }
 
@@ -57,10 +66,12 @@ function TabButton({
 }) {
   return (
     <button
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       className={clsx(
-        'flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition',
-        active ? 'bg-teal-500 text-slate-950' : 'bg-slate-800/60 text-slate-400 hover:text-slate-200',
+        'flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition',
+        active ? 'bg-accent-strong text-on-accent' : 'bg-surface-2 text-muted hover:text-fg',
       )}
     >
       <Icon className="h-4 w-4" />
@@ -78,13 +89,14 @@ function CasosExplorer() {
   useEffect(() => {
     fetchCasos()
       .then((r) => setCases(r.cases))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Error desconocido'))
+      .catch((e) => setError(errorMessage(e)))
   }, [])
 
   const filtered = useMemo(() => {
     if (!cases) return []
+    const q = normalize(query.trim())
     return cases.filter((c) => {
-      const matchesQuery = query.trim() === '' || c.text.toLowerCase().includes(query.toLowerCase())
+      const matchesQuery = q === '' || normalize(c.text).includes(q) || normalize(c.case_id).includes(q)
       if (!matchesQuery) return false
       if (levelFilter === 'all') return true
       if (levelFilter === 'ambiguo') return c.ambiguous
@@ -94,18 +106,26 @@ function CasosExplorer() {
   }, [cases, query, levelFilter])
 
   if (error) return <ErrorBox message={error} />
-  if (!cases) return <Spinner label="Cargando casos..." />
+  if (!cases)
+    return (
+      <div className="grid gap-2">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-20" />
+        ))}
+      </div>
+    )
 
   return (
     <Card>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en el relato..."
-            className="w-full rounded-lg border border-slate-700 bg-slate-800/80 py-2 pl-9 pr-3 text-sm text-slate-100 outline-none ring-teal-500/50 placeholder:text-slate-500 focus:ring-2"
+            aria-label="Buscar en los relatos"
+            className={clsx(inputClass, 'pl-9')}
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -113,40 +133,50 @@ function CasosExplorer() {
             <button
               key={String(f)}
               onClick={() => setLevelFilter(f)}
+              aria-pressed={levelFilter === f}
               className={clsx(
-                'rounded-full px-2.5 py-1 text-xs font-medium transition',
-                levelFilter === f ? 'bg-teal-500 text-slate-950' : 'bg-slate-800/60 text-slate-400 hover:text-slate-200',
+                'min-h-8 rounded-full px-3 py-1 text-xs font-semibold transition',
+                levelFilter === f ? 'bg-accent-strong text-on-accent' : 'bg-surface-2 text-muted hover:text-fg',
               )}
             >
-              {f === 'all' ? 'Todos' : f === 'ambiguo' ? 'Ambiguos' : f === 'abstencion' ? 'Abstención' : `N${f}`}
+              {f === 'all' ? 'Todos' : f === 'ambiguo' ? 'Ambiguos' : f === 'abstencion' ? 'Abstención' : `Nivel ${LEVELS[f].roman}`}
             </button>
           ))}
         </div>
       </div>
 
-      <p className="mb-3 text-xs text-slate-500">{filtered.length} de {cases.length} casos</p>
+      <p className="mb-3 text-xs text-muted">{filtered.length} de {cases.length} casos</p>
 
       <div className="flex max-h-[32rem] flex-col gap-2 overflow-y-auto pr-1">
-        {filtered.map((c) => (
-          <div key={c.case_id} className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+        {filtered.length === 0 && (
+          <p className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-muted">
+            Ningún caso coincide con la búsqueda. Prueba otra palabra o quita el filtro.
+          </p>
+        )}
+        {filtered.map((c, i) => (
+          <div
+            key={c.case_id}
+            className="animate-fade-rise rounded-xl border border-line bg-surface-2/60 p-3 transition hover:-translate-y-0.5 hover:border-accent/40"
+            style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+          >
             <div className="mb-1.5 flex flex-wrap items-center gap-2">
-              <code className="text-xs font-semibold text-slate-400">{c.case_id}</code>
+              <code className="text-xs font-semibold text-muted">{c.case_id}</code>
               {c.should_abstain ? (
-                <span className="rounded-full bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-300">
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-fg-2">
                   caso de abstención
                 </span>
               ) : c.ambiguous ? (
-                <span className="rounded-full bg-purple-500/15 px-2 py-0.5 text-[11px] text-purple-300">
+                <span className="rounded-full bg-accent-2/15 px-2 py-0.5 text-[11px] text-accent-2">
                   ambiguo (excluido)
                 </span>
               ) : (
                 <LevelBadge level={c.final_level} compact />
               )}
               {c.final_citation && (
-                <code className="text-[11px] text-slate-600">{c.final_citation}</code>
+                <code className="text-[11px] text-muted">{c.final_citation}</code>
               )}
             </div>
-            <p className="text-sm text-slate-300">{c.text}</p>
+            <p className="text-sm text-fg-2">{c.text}</p>
           </div>
         ))}
       </div>
@@ -161,9 +191,10 @@ function CorpusExplorer() {
 
   useEffect(() => {
     setChunks(null)
+    setError(null)
     fetchCorpus(format)
       .then((r) => setChunks(r.chunks))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Error desconocido'))
+      .catch((e) => setError(errorMessage(e)))
   }, [format])
 
   return (
@@ -173,9 +204,10 @@ function CorpusExplorer() {
           <button
             key={f}
             onClick={() => setFormat(f)}
+            aria-pressed={format === f}
             className={clsx(
-              'rounded-full px-3 py-1 text-xs font-medium transition',
-              format === f ? 'bg-teal-500 text-slate-950' : 'bg-slate-800/60 text-slate-400 hover:text-slate-200',
+              'min-h-8 rounded-full px-3 py-1 text-xs font-semibold transition',
+              format === f ? 'bg-accent-strong text-on-accent' : 'bg-surface-2 text-muted hover:text-fg',
             )}
           >
             {f === 'reformatted' ? 'Reformateado' : 'Crudo'}
@@ -184,17 +216,27 @@ function CorpusExplorer() {
       </div>
 
       {error && <ErrorBox message={error} />}
-      {!chunks && !error && <Spinner label="Cargando corpus..." />}
+      {!chunks && !error && (
+        <div className="grid gap-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+      )}
 
       {chunks && (
         <div className="flex max-h-[32rem] flex-col gap-2 overflow-y-auto pr-1">
-          {chunks.map((c) => (
-            <div key={c.chunk_id} className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+          {chunks.map((c, i) => (
+            <div
+              key={c.chunk_id}
+              className="animate-fade-rise rounded-xl border border-line bg-surface-2/60 p-3 transition hover:border-accent/40"
+              style={{ animationDelay: `${Math.min(i, 12) * 30}ms`, borderLeft: `3px solid ${levelColor(c.level)}` }}
+            >
               <div className="mb-1.5 flex items-center gap-2">
-                <code className="text-xs font-semibold text-teal-300">{c.chunk_id}</code>
+                <code className="text-xs font-semibold text-accent">{c.chunk_id}</code>
                 <LevelBadge level={c.level} compact />
               </div>
-              <p className="whitespace-pre-line text-xs leading-relaxed text-slate-400">
+              <p className="whitespace-pre-line text-xs leading-relaxed text-muted">
                 {formatChunkText(c.text)}
               </p>
             </div>
